@@ -1,0 +1,6 @@
+.depend
+*.o
+*.d
+*~
+read-bytes-histo
+data
