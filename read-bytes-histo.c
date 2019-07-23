@@ -20,6 +20,7 @@
 int debug = 0;
 gsl_histogram *histo;
 unsigned long histo_overflow = 0;
+unsigned long total_bytes = 0;
 
 int usage()
 {
@@ -31,6 +32,8 @@ int usage()
 
 void sig_int(int signo)
 {
+    fprintf(stderr, "total bytes: %ld bytes\n", total_bytes);
+
     gsl_histogram_fprintf(stdout, histo, "%g", "%g");
     gsl_histogram_free(histo);
     if (histo_overflow > 0) {
@@ -83,6 +86,7 @@ int main(int argc, char *argv[])
         int n, m;
         char buf[2*1024*1024];
         n = read(sockfd, buf, sizeof(buf));
+        total_bytes += n;
         m = gsl_histogram_increment(histo, n);
         if (m == GSL_EDOM) {
             histo_overflow += 1;
