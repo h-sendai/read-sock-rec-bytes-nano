@@ -69,7 +69,8 @@ int main(int argc, char *argv[])
     char *remote_host = argv[0];
     int port = strtol(argv[1], NULL, 0);
                 
-    my_signal(SIGINT, sig_int);
+    my_signal(SIGINT,  sig_int);
+    my_signal(SIGTERM, sig_int);
     histo = gsl_histogram_alloc(n_bin);
     gsl_histogram_set_ranges_uniform(histo, 0, 1460*n_bin);
 
