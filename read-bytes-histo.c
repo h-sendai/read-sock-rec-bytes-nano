@@ -16,11 +16,13 @@
 
 #include "my_signal.h"
 #include "my_socket.h"
+#include "set_timer.h"
 
 int debug = 0;
 gsl_histogram *histo;
 unsigned long histo_overflow = 0;
 unsigned long total_bytes = 0;
+struct timeval start, stop;
 
 int usage()
 {
@@ -32,7 +34,11 @@ int usage()
 
 void sig_int(int signo)
 {
+    struct timeval elapse;
+    gettimeofday(&stop, NULL);
+    timersub(&stop, &start, &elapse);
     fprintf(stderr, "total bytes: %ld bytes\n", total_bytes);
+    fprintf(stderr, "running %ld.%06ld sec\n", elapse.tv_sec, elapse.tv_usec);
 
     gsl_histogram_fprintf(stdout, histo, "%g", "%g");
     gsl_histogram_free(histo);
@@ -47,11 +53,19 @@ int main(int argc, char *argv[])
 {
     int c;
     int n_bin = 30;
+    int period = 10; /* default run time (10 seconds) */
 
-    while ( (c = getopt(argc, argv, "d")) != -1) {
+    while ( (c = getopt(argc, argv, "dt:")) != -1) {
         switch (c) {
+            case 'h':
+                usage();
+                exit(0);
+                break; /* NOTREACHED */
             case 'd':
                 debug = 1;
+                break;
+            case 't':
+                period = strtol(optarg, NULL, 0);
                 break;
             default:
                 break;
@@ -71,6 +85,8 @@ int main(int argc, char *argv[])
                 
     my_signal(SIGINT,  sig_int);
     my_signal(SIGTERM, sig_int);
+    my_signal(SIGALRM, sig_int);
+
     histo = gsl_histogram_alloc(n_bin);
     gsl_histogram_set_ranges_uniform(histo, 0, 1460*n_bin);
 
@@ -82,6 +98,9 @@ int main(int argc, char *argv[])
     if (connect_tcp(sockfd, remote_host, port) < 0) {
         errx(1, "connect_tcp");
     }
+
+    set_timer(period, 0, period, 0);
+    gettimeofday(&start, NULL);
 
     for ( ; ; ) {
         int n, m;
