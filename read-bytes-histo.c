@@ -26,7 +26,9 @@ struct timeval start, stop;
 
 int usage()
 {
-    char msg[] = "Usage: ./read-bytes-histo ip_address port";
+    char msg[] = "Usage: ./read-bytes-histo [-t TIMEOUT] ip_address port\n"
+                 " Options:\n"
+                 "    -t TIMEOUT: seconds.  (default: 10 seconds)\n";
     fprintf(stderr, "%s\n", msg);
 
     return 0;
@@ -55,7 +57,7 @@ int main(int argc, char *argv[])
     int n_bin = 30;
     int period = 10; /* default run time (10 seconds) */
 
-    while ( (c = getopt(argc, argv, "dt:")) != -1) {
+    while ( (c = getopt(argc, argv, "dht:")) != -1) {
         switch (c) {
             case 'h':
                 usage();
