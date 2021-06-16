@@ -1,4 +1,4 @@
-PROG = read-bytes-histo
+PROG = read-sock-histo
 CFLAGS += -g -O2 -Wall
 CFLAGS += -std=gnu99
 # CFLAGS += -pthread
