@@ -3,9 +3,13 @@
 read()で読んだバイト数のヒストグラムデータを作る。
 
 ヒストグラムデータを作るのにGNU Scientific Library (gsl)を使ってる。
-入っていなければ
+入っていなければCentOS:
 ```
 root# yum install gsl-devel
+```
+Debian:
+```
+root# apt install libgsl-dev
 ```
 でセットしておく。
 
