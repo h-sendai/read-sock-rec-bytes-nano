@@ -22,20 +22,22 @@
 int debug = 0;
 gsl_histogram *histo;
 unsigned long histo_overflow = 0;
-unsigned long total_bytes = 0;
+unsigned long total_bytes    = 0;
+unsigned long read_count     = 0;
 struct timeval start, stop;
 int bufsize = 2*1024*1024;
 
 int usage()
 {
-    char msg[] = "Usage: ./read-bytes-histo [-b bufsize] [-t TIMEOUT] ip_address:port\n"
+    char msg[] = "Usage: ./read-bytes-histo [-b bufsize] [-B n_bin] [-t TIMEOUT] ip_address:port\n"
                  "example of ip_address:port\n"
                  "remote_host:1234\n"
                  "192.168.10.16:24\n"
                  "default port: 1234\n"
                  " Options:\n"
+                 "    -b bufsize: suffix k for kilo (1024), m for mega(1024*1024) (default 2MB)\n"
                  "    -t TIMEOUT: seconds.  (default: 10 seconds)\n"
-                 "    -b bufsize: suffix k for kilo (1024), m for mega(1024*1024) (default 2MB)\n";
+                 "    -B n_bin: number of bins.  histogram range [0, 1460*n_bin) default 30\n";
     fprintf(stderr, "%s\n", msg);
 
     return 0;
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
     int n_bin = 30;
     int period = 10; /* default run time (10 seconds) */
 
-    while ( (c = getopt(argc, argv, "b:dht:")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dht:B:")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
@@ -82,6 +84,9 @@ int main(int argc, char *argv[])
                 break;
             case 't':
                 period = strtol(optarg, NULL, 0);
+                break;
+            case 'B':
+                n_bin = strtol(optarg, NULL, 0);
                 break;
             default:
                 break;
@@ -132,6 +137,7 @@ int main(int argc, char *argv[])
         int n, m;
         n = read(sockfd, buf, bufsize);
         total_bytes += n;
+        read_count ++;
         m = gsl_histogram_increment(histo, n);
         if (m == GSL_EDOM) {
             histo_overflow += 1;
