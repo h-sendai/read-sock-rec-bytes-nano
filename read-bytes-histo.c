@@ -50,6 +50,7 @@ void sig_int(int signo)
     timersub(&stop, &start, &elapse);
     fprintf(stderr, "bufsize: %.3f kB\n", bufsize/1024.0);
     fprintf(stderr, "total bytes: %ld bytes\n", total_bytes);
+    fprintf(stderr, "read count : %ld\n", read_count);
     fprintf(stderr, "running %ld.%06ld sec\n", elapse.tv_sec, elapse.tv_usec);
     double elapsed_time = elapse.tv_sec + 0.000001*elapse.tv_usec;
     double transfer_rate_MB_s = (double)total_bytes / elapsed_time / 1024.0 / 1024.0;
