@@ -29,7 +29,7 @@ int bufsize = 2*1024*1024;
 
 int usage()
 {
-    char msg[] = "Usage: ./read-bytes-histo [-b bufsize] [-B n_bin] [-t TIMEOUT] ip_address:port\n"
+    char msg[] = "Usage: ./read-bytes-histo [-b bufsize] [-w bin_width] [-B n_bin] [-t TIMEOUT] ip_address:port\n"
                  "example of ip_address:port\n"
                  "remote_host:1234\n"
                  "192.168.10.16:24\n"
@@ -37,7 +37,8 @@ int usage()
                  " Options:\n"
                  "    -b bufsize: suffix k for kilo (1024), m for mega(1024*1024) (default 2MB)\n"
                  "    -t TIMEOUT: seconds.  (default: 10 seconds)\n"
-                 "    -B n_bin: number of bins.  histogram range [0, 1460*n_bin) default 30\n";
+                 "    -w bin_width: default 1460 bytes\n"
+                 "    -B n_bin: number of bins.  histogram range [0, bin_width*n_bin) default 30\n";
     fprintf(stderr, "%s\n", msg);
 
     return 0;
@@ -72,8 +73,9 @@ int main(int argc, char *argv[])
     int c;
     int n_bin = 30;
     int period = 10; /* default run time (10 seconds) */
+    int bin_width = 1460;
 
-    while ( (c = getopt(argc, argv, "b:dht:B:")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dht:w:B:")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
@@ -87,6 +89,9 @@ int main(int argc, char *argv[])
                 break;
             case 't':
                 period = strtol(optarg, NULL, 0);
+                break;
+            case 'w':
+                bin_width = get_num(optarg);
                 break;
             case 'B':
                 n_bin = strtol(optarg, NULL, 0);
@@ -117,7 +122,7 @@ int main(int argc, char *argv[])
     my_signal(SIGALRM, sig_int);
 
     histo = gsl_histogram_alloc(n_bin);
-    gsl_histogram_set_ranges_uniform(histo, 0, 1460*n_bin);
+    gsl_histogram_set_ranges_uniform(histo, 0, bin_width*n_bin);
 
     int sockfd = tcp_socket();
     if (sockfd < 0) {
