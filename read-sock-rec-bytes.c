@@ -11,25 +11,22 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <gsl/gsl_histogram.h>
-#include <gsl/gsl_errno.h>
-
 #include "my_signal.h"
 #include "my_socket.h"
 #include "set_timer.h"
 #include "get_num.h"
 
 int debug = 0;
-gsl_histogram *histo;
-unsigned long histo_overflow = 0;
-unsigned long total_bytes    = 0;
-unsigned long read_count     = 0;
+unsigned long total_bytes = 0;
+unsigned long read_count  = 0;
 struct timeval start, stop;
 int bufsize = 2*1024*1024;
+int *read_bytes_data = NULL;
 
 int usage()
 {
-    char msg[] = "Usage: ./read-bytes-histo [-b bufsize] [-w bin_width] [-B n_bin] [-t TIMEOUT] ip_address:port\n"
+    char msg[] = "Usage: ./read-bytes-rec-bytes [-b bufsize] [-N max_read_count] [-t TIMEOUT] ip_address:port\n"
+                 "print read bytes to stdout when timeout or read() max_read_count times\n"
                  "example of ip_address:port\n"
                  "remote_host:1234\n"
                  "192.168.10.16:24\n"
@@ -37,8 +34,8 @@ int usage()
                  " Options:\n"
                  "    -b bufsize: suffix k for kilo (1024), m for mega(1024*1024) (default 2MB)\n"
                  "    -t TIMEOUT: seconds.  (default: 10 seconds)\n"
-                 "    -w bin_width: default 1460 bytes\n"
-                 "    -B n_bin: number of bins.  histogram range [0, bin_width*n_bin) default 30\n";
+                 "    -N max_read_count: default 10^6.\n"
+                 "exit if read() done max_read_count times or timeout (default 10 sec)";
     fprintf(stderr, "%s\n", msg);
 
     return 0;
@@ -58,11 +55,9 @@ void sig_int(int signo)
     double read_bytes_per_read = (double)total_bytes / (double)read_count / 1024.0;
     fprintf(stderr, "transfer_rate: %.3f MB/s\n", transfer_rate_MB_s);
     fprintf(stderr, "read_bytes_per_read: %.3f kB/read\n", read_bytes_per_read);
-
-    gsl_histogram_fprintf(stdout, histo, "%g", "%g");
-    gsl_histogram_free(histo);
-    if (histo_overflow > 0) {
-        printf("overflow: %ld\n", histo_overflow);
+    
+    for (unsigned long i = 0; i < read_count; ++i) {
+        printf("%d\n", read_bytes_data[i]);
     }
 
     exit(0);
@@ -71,11 +66,10 @@ void sig_int(int signo)
 int main(int argc, char *argv[])
 {
     int c;
-    int n_bin = 30;
     int period = 10; /* default run time (10 seconds) */
-    int bin_width = 1460;
+    long max_read_count = 1000000;
 
-    while ( (c = getopt(argc, argv, "b:dht:w:B:")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dht:N:")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
@@ -90,11 +84,8 @@ int main(int argc, char *argv[])
             case 't':
                 period = strtol(optarg, NULL, 0);
                 break;
-            case 'w':
-                bin_width = get_num(optarg);
-                break;
-            case 'B':
-                n_bin = strtol(optarg, NULL, 0);
+            case 'N':
+                max_read_count = strtol(optarg, NULL, 0);
                 break;
             default:
                 break;
@@ -117,12 +108,17 @@ int main(int argc, char *argv[])
         port = strtol(tmp, NULL, 0);
     }
 
+    read_bytes_data = malloc(sizeof(int)*max_read_count);
+    if (read_bytes_data == NULL) {
+        err(1, "malloc for read_bytes_data");
+    }
+    for (unsigned long i = 0; i < max_read_count; ++i) {
+        read_bytes_data[i] = 0;
+    }
+
     my_signal(SIGINT,  sig_int);
     my_signal(SIGTERM, sig_int);
     my_signal(SIGALRM, sig_int);
-
-    histo = gsl_histogram_alloc(n_bin);
-    gsl_histogram_set_ranges_uniform(histo, 0, bin_width*n_bin);
 
     int sockfd = tcp_socket();
     if (sockfd < 0) {
@@ -142,13 +138,23 @@ int main(int argc, char *argv[])
     }
 
     for ( ; ; ) {
-        int n, m;
+        int n;
         n = read(sockfd, buf, bufsize);
+        /* not mandatory in this program */
+        if (n < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            else {
+                err(1, "read");
+            }
+        }
         total_bytes += n;
+        read_bytes_data[read_count] = n;
         read_count ++;
-        m = gsl_histogram_increment(histo, n);
-        if (m == GSL_EDOM) {
-            histo_overflow += 1;
+        if (read_count == max_read_count) {
+            sig_int(0);
+            exit(0);
         }
     }
 }

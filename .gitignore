@@ -2,4 +2,4 @@
 *.o
 *.d
 *~
-read-sock-histo
+read-sock-rec-bytes

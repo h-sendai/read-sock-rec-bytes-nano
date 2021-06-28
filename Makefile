@@ -1,9 +1,8 @@
-PROG = read-sock-histo
+PROG = read-sock-rec-bytes
 CFLAGS += -g -O2 -Wall
 CFLAGS += -std=gnu99
 # CFLAGS += -pthread
 # LDLIBS += -L/usr/local/lib -lmylib
-LDLIBS += -lgsl -lgslcblas
 # LDFLAGS += -pthread
 
 all: $(PROG)
