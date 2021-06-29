@@ -21,7 +21,11 @@ unsigned long total_bytes = 0;
 unsigned long read_count  = 0;
 struct timeval start, stop;
 int bufsize = 2*1024*1024;
-int *read_bytes_data = NULL;
+struct read_bytes_data {
+    struct timeval tv;
+    int read_bytes;
+};
+struct read_bytes_data *read_bytes_data = NULL;
 
 int usage()
 {
@@ -57,7 +61,9 @@ void sig_int(int signo)
     fprintf(stderr, "read_bytes_per_read: %.3f kB/read\n", read_bytes_per_read);
     
     for (unsigned long i = 0; i < read_count; ++i) {
-        printf("%d\n", read_bytes_data[i]);
+        timersub(&read_bytes_data[i].tv, &start, &elapse);
+        printf("%ld.%06ld %d\n",
+            elapse.tv_sec, elapse.tv_usec, read_bytes_data[i].read_bytes);
     }
 
     exit(0);
@@ -108,12 +114,14 @@ int main(int argc, char *argv[])
         port = strtol(tmp, NULL, 0);
     }
 
-    read_bytes_data = malloc(sizeof(int)*max_read_count);
+    read_bytes_data = malloc(sizeof(struct read_bytes_data)*max_read_count);
     if (read_bytes_data == NULL) {
         err(1, "malloc for read_bytes_data");
     }
     for (unsigned long i = 0; i < max_read_count; ++i) {
-        read_bytes_data[i] = 0;
+        read_bytes_data[i].tv.tv_sec  = 0;
+        read_bytes_data[i].tv.tv_usec = 0;
+        read_bytes_data[i].read_bytes = 0;
     }
 
     my_signal(SIGINT,  sig_int);
@@ -149,8 +157,9 @@ int main(int argc, char *argv[])
                 err(1, "read");
             }
         }
+        gettimeofday(&read_bytes_data[read_count].tv, NULL);
         total_bytes += n;
-        read_bytes_data[read_count] = n;
+        read_bytes_data[read_count].read_bytes = n;
         read_count ++;
         if (read_count == max_read_count) {
             sig_int(0);
