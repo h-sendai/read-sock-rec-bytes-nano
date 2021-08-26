@@ -15,14 +15,15 @@
 #include "my_socket.h"
 #include "set_timer.h"
 #include "get_num.h"
+#include "timespecsub.h"
 
 int debug = 0;
 unsigned long total_bytes = 0;
 unsigned long read_count  = 0;
-struct timeval start, stop;
+struct timespec start, stop;
 int bufsize = 2*1024*1024;
 struct read_bytes_data {
-    struct timeval tv;
+    struct timespec ts;
     int read_bytes;
 };
 struct read_bytes_data *read_bytes_data = NULL;
@@ -47,23 +48,24 @@ int usage()
 
 void sig_int(int signo)
 {
-    struct timeval elapse;
-    gettimeofday(&stop, NULL);
-    timersub(&stop, &start, &elapse);
+    struct timespec elapse;
+    clock_gettime(CLOCK_MONOTONIC, &stop);
+    timespecsub(&stop, &start, &elapse);
     fprintf(stderr, "bufsize: %.3f kB\n", bufsize/1024.0);
     fprintf(stderr, "total bytes: %ld bytes\n", total_bytes);
     fprintf(stderr, "read count : %ld\n", read_count);
-    fprintf(stderr, "running %ld.%06ld sec\n", elapse.tv_sec, elapse.tv_usec);
-    double elapsed_time        = elapse.tv_sec + 0.000001*elapse.tv_usec;
+    fprintf(stderr, "running %ld.%06ld sec\n", elapse.tv_sec, elapse.tv_nsec);
+    double elapsed_time        = elapse.tv_sec + 0.000000001*elapse.tv_nsec;
     double transfer_rate_MB_s  = (double)total_bytes / elapsed_time / 1024.0 / 1024.0;
+    double transfer_rate_Gbps  = (double)total_bytes * 8 / elapsed_time / 1000000000.0;
     double read_bytes_per_read = (double)total_bytes / (double)read_count / 1024.0;
-    fprintf(stderr, "transfer_rate: %.3f MB/s\n", transfer_rate_MB_s);
+    fprintf(stderr, "transfer_rate: %.3f MB/s %.3f Gbps\n", transfer_rate_MB_s, transfer_rate_Gbps);
     fprintf(stderr, "read_bytes_per_read: %.3f kB/read\n", read_bytes_per_read);
     
     for (unsigned long i = 0; i < read_count; ++i) {
-        timersub(&read_bytes_data[i].tv, &start, &elapse);
-        printf("%ld.%06ld %d\n",
-            elapse.tv_sec, elapse.tv_usec, read_bytes_data[i].read_bytes);
+        timespecsub(&read_bytes_data[i].ts, &start, &elapse);
+        printf("%ld.%09ld %d\n",
+            elapse.tv_sec, elapse.tv_nsec, read_bytes_data[i].read_bytes);
     }
 
     exit(0);
@@ -119,8 +121,8 @@ int main(int argc, char *argv[])
         err(1, "malloc for read_bytes_data");
     }
     for (unsigned long i = 0; i < max_read_count; ++i) {
-        read_bytes_data[i].tv.tv_sec  = 0;
-        read_bytes_data[i].tv.tv_usec = 0;
+        read_bytes_data[i].ts.tv_sec  = 0;
+        read_bytes_data[i].ts.tv_nsec = 0;
         read_bytes_data[i].read_bytes = 0;
     }
 
@@ -138,7 +140,7 @@ int main(int argc, char *argv[])
     }
 
     set_timer(period, 0, period, 0);
-    gettimeofday(&start, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     char *buf = malloc(bufsize);
     if (buf == NULL) {
@@ -157,7 +159,7 @@ int main(int argc, char *argv[])
                 err(1, "read");
             }
         }
-        gettimeofday(&read_bytes_data[read_count].tv, NULL);
+        clock_gettime(CLOCK_MONOTONIC, &read_bytes_data[read_count].ts);
         total_bytes += n;
         read_bytes_data[read_count].read_bytes = n;
         read_count ++;
