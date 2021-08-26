@@ -141,6 +141,10 @@ int main(int argc, char *argv[])
 
     set_timer(period, 0, period, 0);
     clock_gettime(CLOCK_MONOTONIC, &start);
+    /* read_count == 0 */
+    read_bytes_data[read_count].ts = start;
+    read_bytes_data[read_count].read_bytes = 0;
+    read_count ++;
 
     char *buf = malloc(bufsize);
     if (buf == NULL) {
